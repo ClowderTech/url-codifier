@@ -57,9 +57,57 @@ def generate_random_key(length=12):
     characters = string.ascii_letters + string.digits
     return ''.join(random.choice(characters) for i in range(length))
 
+safe_builtins = {
+    'abs': abs,
+    'all': all,
+    'any': any,
+    'ascii': ascii,
+    'bin': bin,
+    'bool': bool,
+    'chr': chr,
+    'complex': complex,
+    'dict': dict,
+    'divmod': divmod,
+    'enumerate': enumerate,
+    'filter': filter,
+    'float': float,
+    'format': format,
+    'frozenset': frozenset,
+    'hash': hash,
+    'hex': hex,
+    'int': int,
+    'isinstance': isinstance,
+    'issubclass': issubclass,
+    'iter': iter,
+    'len': len,
+    'list': list,
+    'map': map,
+    'max': max,
+    'min': min,
+    'next': next,
+    'object': object,
+    'oct': oct,
+    'ord': ord,
+    'pow': pow,
+    'range': range,
+    'repr': repr,
+    'reversed': reversed,
+    'round': round,
+    'set': set,
+    'slice': slice,
+    'sorted': sorted,
+    'str': str,
+    'sum': sum,
+    'tuple': tuple,
+    'zip': zip,
+    "True": True,
+    "False": False,
+    "None": None
+}
+
 def execute_async_code(code):
     """Executes the dynamic code and returns a result by scheduling the async function."""
-    exec_globals = {"fetch_data": fetch_data, "__builtins__": {}}
+    exec_globals = {"fetch_data": fetch_data, "__builtins__": safe_builtins}
 
     # Execute the dynamic code
     exec(code, exec_globals)
@@ -153,7 +201,7 @@ async def dynamic_redirect(request: Request, key: str):
     collection = db.route_handlers
     document = await collection.find_one({"key": key})
     if document:
-        return RedirectResponse(url=execute_async_code(document['handler_function']))
+        return RedirectResponse(url=execute_async_code(document.get("code")))
     return "Handler function not found.", 404
 
 # Run FastAPI with Uvicorn
