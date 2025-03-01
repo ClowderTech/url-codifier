@@ -153,7 +153,7 @@ async def dynamic_redirect(request: Request, key: str):
     collection = db.route_handlers
     document = await collection.find_one({"key": key})
     if document:
-        return redirect(execute_async_code(document['handler_function']))
+        return RedirectResponse(url=execute_async_code(document['handler_function']))
     return "Handler function not found.", 404
 
 # Run FastAPI with Uvicorn
