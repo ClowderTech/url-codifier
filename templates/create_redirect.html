@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Redirect</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div>
+        <h1>Create a New Redirect</h1>
+
+        <!-- Flash messages -->
+        <div class="flash-messages">
+            {% for category, message in messages %}
+                <p class="{{ category }}">{{ message }}</p>
+            {% endfor %}
+        </div>
+
+        <form method="POST">
+            <div>
+                <label for="code">Code</label>
+                <!-- Container for CodeMirror editor -->
+                <div id="code-editor"></div>
+                <textarea name="code" id="code" style="display: none;"></textarea>
+                {% if errors.code %}
+                    <div class="error">{{ errors.code }}</div>
+                {% endif %}
+            </div>            
+            <div>
+                <label for="password">Password</label>
+                <input type="password" name="password" value="{{ form.password if form else '' }}" required>
+                {% if errors.password %}
+                    <div class="error">{{ errors.password }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <button type="submit">Submit</button>
+            </div>
+        </form>
+              
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/static/script.js"></script>  
+</body>
+</html>

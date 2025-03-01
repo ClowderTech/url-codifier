@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+jinja2
+motor
+aiofiles
+aiohttp
+bcrypt
+python-multipart
+itsdangerous
+pydantic
