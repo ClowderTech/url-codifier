@@ -114,3 +114,44 @@ form div:nth-child(2) {
     margin-bottom: 1rem; /* Add spacing between password input and code editor */
 }
 
+.error-details {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+}
+
+.error-details pre {
+    background-color: #f4f4f4;
+    padding: 12px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    line-height: 1.5;
+    overflow-x: auto;
+}
+
+.error-details p {
+    font-size: 1.1em;
+}
+
+.error-details h3 {
+    margin-top: 1rem;
+    font-size: 1.3em;
+}
+
+.back-link {
+    display: inline-block;
+    margin-top: 20px;
+    color: #007bff;
+    font-weight: bold;
+    text-decoration: none;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-radius: 6px;
+}
+
+.back-link:hover {
+    background-color: #ddd;
+}

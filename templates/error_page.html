@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error - Code Execution</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div>
+        <h1>Error Executing Code</h1>
+
+        <!-- Flash messages -->
+        <div class="flash-messages">
+            {% for category, message in messages %}
+                <p class="{{ category }}">{{ message }}</p>
+            {% endfor %}
+        </div>
+
+        <!-- Error details -->
+        <div class="error-details">
+            <p><strong>Error Message:</strong> {{ error_message }}</p>
+            <h3>Traceback:</h3>
+            <pre>{{ traceback }}</pre>
+        </div>
+
+        <a href="/" class="back-link">Go back to the Create Redirect page</a>
+    </div>
+</body>
+</html>

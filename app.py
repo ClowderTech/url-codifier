@@ -12,6 +12,9 @@ from markupsafe import Markup
 from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates  # Add this import
 from starlette.middleware.sessions import SessionMiddleware
+import re
+import traceback
+from typing import List, Tuple
 
 # Initialize FastAPI application
 app = FastAPI()
@@ -105,37 +108,46 @@ safe_builtins = {
     "None": None
 }
 
-def execute_async_code(code):
-    """Executes the dynamic code and returns a result by scheduling the async function."""
+def is_valid_url(url):
+    """Checks if a string is a valid URL."""
+    regex = re.compile(
+        r'^(?:http|ftp)s?://' # http:// or https://
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' # domain...
+        r'localhost|' # localhost...
+        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|' # ...or ipv4
+        r'\[?[A-F0-9]*:[A-F0-9:]+\]?)' # ...or ipv6
+        r'(?::\d+)?' # optional port
+        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+    return re.match(regex, url) is not None
+
+async def execute_async_code(code):
+    """Executes the dynamic code asynchronously and returns a result."""
     exec_globals = {"fetch_data": fetch_data, "__builtins__": safe_builtins}
-
-    # Execute the dynamic code
-    exec(code, exec_globals)
-
-    # Retrieve the handler function
-    handler = exec_globals.get('main')
-
-    if handler:
-        # Use asyncio.ensure_future to schedule the async handler function without blocking
-        task = asyncio.ensure_future(handler())
-        return task
-    else:
-        raise ValueError("No handler function defined in the provided code.")
-
-from typing import List, Tuple
-
-def get_flashed_messages(session: dict, with_categories: bool = False) -> List[Tuple[str, str]]:
-    """Retrieve flashed messages from the session."""
-    messages = session.pop("_messages", [])
-    if with_categories:
-        return messages
-    return [message[1] for message in messages]
-
-def flash(session: dict, message: str, category: str = "message"):
-    """Store a message in the session."""
-    messages = session.get("_messages", [])
-    messages.append((category, message))
-    session["_messages"] = messages
+    try:
+        # Execute the dynamic code
+        exec(code, exec_globals)
+        handler = exec_globals.get('main')
+        if handler:
+            task = asyncio.create_task(handler())
+            result = await task
+            if task.exception():
+                # Handle the exception from the task
+                raise task.exception()
+            
+            # Check if result is a valid URL
+            if not is_valid_url(result):
+                raise ValueError(f"Result '{result}' is not a valid URL.")
+            
+            return result
+        else:
+            raise ValueError("No handler function defined in the provided code.")
+    except Exception as e:
+        # Capture the traceback details
+        tb_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+        # Log the traceback to the console (or a log file)
+        print(tb_str)
+        # Raise a custom exception with the traceback details
+        raise RuntimeError("Error executing dynamic code.") from e
 
 async def fetch_data(url):
     async with aiohttp.ClientSession() as session:
@@ -195,14 +207,35 @@ async def create_redirect(request: Request, code: str = Form(...), password: str
         "errors": errors
     })
 
+import traceback
+
 @app.get("/redirect/{key}", response_class=HTMLResponse)
 async def dynamic_redirect(request: Request, key: str):
     """Dynamically handle redirects based on MongoDB data."""
     collection = db.route_handlers
     document = await collection.find_one({"key": key})
     if document:
-        return RedirectResponse(url=execute_async_code(document.get("code")))
-    return "Handler function not found.", 404
+        # Check if 'code' exists and is not empty
+        code = document.get("code")
+        if code:
+            try:
+                result = await execute_async_code(code)
+                return RedirectResponse(url=result)
+            except Exception as e:
+                # Extract the traceback from the exception
+                tb_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+                # Pass the traceback to the template
+                return templates.TemplateResponse("error_page.html", {
+                    "request": request,
+                    "error_message": "An error occurred while processing your code.",
+                    "traceback": tb_str,
+                    "messages": [["danger", "An error occurred while executing your code."]]
+                })
+        else:
+            return "The 'code' field is empty.", 400  # Bad request error for empty 'code'
+    return "Handler function not found.", 404  # Not found error if document doesn't exist.
+
+
 
 # Run FastAPI with Uvicorn
 if __name__ == "__main__":
