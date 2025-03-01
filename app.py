@@ -165,7 +165,6 @@ async def fetch_data(url):
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Render the home page with form."""
-    messages = get_flashed_messages(request.session, with_categories=True)
     return templates.TemplateResponse("create_redirect.html", {
         "request": request,
         "messages": [],
