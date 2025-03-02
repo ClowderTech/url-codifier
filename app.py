@@ -160,7 +160,7 @@ async def fetch_data(url):
             else:
                 return f"Request failed with status code {response.status}"
 
-@app.get("/", response_class=HTMLResponse)
+@app.route("/", methods=["GET"])
 async def home(request: Request):
     """Render the home page with form."""
     return templates.TemplateResponse("create_redirect.html", {
@@ -170,7 +170,7 @@ async def home(request: Request):
         "errors": {}    # No errors initially
     })
 
-@app.post("/", response_class=HTMLResponse)
+@app.route("/", methods=["POST"])
 async def create_redirect(request: Request, code: str = Form(...), password: str = Form(...)):
     """Handle form submission, hash password, generate random key, and store redirect info in MongoDB."""
 
@@ -206,7 +206,7 @@ async def create_redirect(request: Request, code: str = Form(...), password: str
 
 import traceback
 
-@app.get("/redirect/{key}", response_class=HTMLResponse)
+@app.route("/redirect/{key}", methods=["GET", "HEAD"])
 async def dynamic_redirect(request: Request, key: str):
     """Dynamically handle redirects based on MongoDB data."""
     collection = db.route_handlers
