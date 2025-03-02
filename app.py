@@ -153,11 +153,9 @@ async def fetch_data(url):
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             if response.ok:
-                # Check if the response content type is JSON
-                content_type = response.headers.get('Content-Type', '').lower()
-                if 'application/json' in content_type:
+                try:
                     return await response.json()
-                else:
+                except (aiohttp.ContentTypeError, json.JSONDecodeError):
                     return await response.text()
             else:
                 return f"Request failed with status code {response.status}"
