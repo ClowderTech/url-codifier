@@ -160,7 +160,7 @@ async def fetch_data(url):
             else:
                 return f"Request failed with status code {response.status}"
 
-@app.route("/", methods=["GET"])
+@app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Render the home page with form."""
     return templates.TemplateResponse("create_redirect.html", {
@@ -170,7 +170,7 @@ async def home(request: Request):
         "errors": {}    # No errors initially
     })
 
-@app.route("/", methods=["POST"])
+@app.post("/", response_class=HTMLResponse)
 async def create_redirect(request: Request, code: str = Form(...), password: str = Form(...)):
     """Handle form submission, hash password, generate random key, and store redirect info in MongoDB."""
 
@@ -206,7 +206,33 @@ async def create_redirect(request: Request, code: str = Form(...), password: str
 
 import traceback
 
-@app.route("/redirect/{key}", methods=["GET", "HEAD"])
+@app.get("/redirect/{key}", response_class=HTMLResponse)
+async def dynamic_redirect(request: Request, key: str):
+    """Dynamically handle redirects based on MongoDB data."""
+    collection = db.route_handlers
+    document = await collection.find_one({"key": key})
+    if document:
+        # Check if 'code' exists and is not empty
+        code = document.get("code")
+        if code:
+            try:
+                result = await execute_async_code(code)
+                return RedirectResponse(url=result)
+            except Exception as e:
+                # Extract the traceback from the exception
+                tb_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+                # Pass the traceback to the template
+                return templates.TemplateResponse("error_page.html", {
+                    "request": request,
+                    "error_message": "An error occurred while processing your code.",
+                    "traceback": tb_str,
+                    "messages": [["danger", "An error occurred while executing your code."]]
+                })
+        else:
+            return "The 'code' field is empty.", 400  # Bad request error for empty 'code'
+    return "Handler function not found.", 404  # Not found error if document doesn't exist.
+
+@app.head("/redirect/{key}", response_class=HTMLResponse)
 async def dynamic_redirect(request: Request, key: str):
     """Dynamically handle redirects based on MongoDB data."""
     collection = db.route_handlers
