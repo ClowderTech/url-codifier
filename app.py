@@ -5,8 +5,8 @@ import string
 import aiohttp
 import asyncio
 import bcrypt
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi import FastAPI, Request, Form, Query
+from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from markupsafe import Markup
 from pydantic import BaseModel
@@ -206,6 +206,7 @@ async def create_redirect(request: Request, code: str = Form(...), password: str
 
 import traceback
 
+@app.head("/redirect/{key}", response_class=HTMLResponse)
 @app.get("/redirect/{key}", response_class=HTMLResponse)
 async def dynamic_redirect(request: Request, key: str):
     """Dynamically handle redirects based on MongoDB data."""
@@ -232,8 +233,9 @@ async def dynamic_redirect(request: Request, key: str):
             return "The 'code' field is empty.", 400  # Bad request error for empty 'code'
     return "Handler function not found.", 404  # Not found error if document doesn't exist.
 
-@app.head("/redirect/{key}", response_class=HTMLResponse)
-async def dynamic_redirect(request: Request, key: str):
+@app.head("/download/{key}", response_class=HTMLResponse)
+@app.get("/download/{key}", response_class=HTMLResponse)
+async def dynamic_download(request: Request, key: str, file_name: str = Query(..., description="The desired filename for the downloaded file")):
     """Dynamically handle redirects based on MongoDB data."""
     collection = db.route_handlers
     document = await collection.find_one({"key": key})
@@ -243,7 +245,17 @@ async def dynamic_redirect(request: Request, key: str):
         if code:
             try:
                 result = await execute_async_code(code)
-                return RedirectResponse(url=result)
+
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(result) as response:
+                        response.raise_for_status()
+                        content = await response.read()
+                
+                return StreamingResponse(
+                    iter([content]),
+                    media_type=response.headers.get('Content-Type', 'application/octet-stream'),
+                    headers={'Content-Disposition': f'attachment; filename="{file_name}"'}
+                )
             except Exception as e:
                 # Extract the traceback from the exception
                 tb_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
@@ -257,7 +269,6 @@ async def dynamic_redirect(request: Request, key: str):
         else:
             return "The 'code' field is empty.", 400  # Bad request error for empty 'code'
     return "Handler function not found.", 404  # Not found error if document doesn't exist.
-
 
 
 # Run FastAPI with Uvicorn
