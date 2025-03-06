@@ -1,9 +1,9 @@
 document.addEventListener('DOMContentLoaded', function () {
     var editor = CodeMirror(document.getElementById('code-editor'), {
-        value: '',
+        value: 'async def main():\n    return ""', // Prefill the editor with the template
         mode: 'python',
         lineNumbers: true,
-        theme: 'default',
+        theme: 'material', // Ensure this matches your chosen dark theme
         lineWrapping: true,
         matchBrackets: true,
         autoCloseBrackets: true,
@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', function () {
         showCursorWhenSelecting: true,
         indentUnit: 4,
         tabSize: 4,
-        // Removed scrollbarStyle to prevent the error
     });
 
     // Sync CodeMirror content with hidden textarea
