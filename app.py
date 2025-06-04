@@ -269,7 +269,8 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
             try:
                 result = await execute_async_code(code)
 
-                content = bytes()
+                content = None
+                response = None
 
                 if not BROWSER_WS:
                     async with aiohttp.ClientSession() as session:
