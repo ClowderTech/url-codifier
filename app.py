@@ -15,7 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 import re
 import traceback
 from typing import List, Tuple
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, Response
 from playwright._impl._errors import Error as PlaywrightError
 
 
@@ -269,8 +269,8 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
             try:
                 result = await execute_async_code(code)
 
-                content = None
-                response = None
+                content: bytes
+                response: Response
 
                 if not BROWSER_WS:
                     async with aiohttp.ClientSession() as session:
