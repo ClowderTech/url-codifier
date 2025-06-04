@@ -16,6 +16,8 @@ import re
 import traceback
 from typing import List, Tuple
 from playwright.async_api import async_playwright
+from playwright._impl._errors import Error as PlaywrightError
+
 
 # Initialize FastAPI application
 app = FastAPI()
@@ -281,6 +283,18 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
                                 response = await page.goto(result)
                                 if response.ok:
                                     content = await response.body()
+                            except Error:
+                                try:
+                                    download_future = page.wait_for_event("download")
+                                    response = await page.goto(result)
+                                    if response.ok:
+                                        stream = await (await download_future).create_read_stream() or await response.body()
+                                        buffer = io.BytesIO()
+                                        async for chunk in stream:
+                                            buffer.write(chunk)
+                                        content = buffer.getvalue()
+                                except:
+                                    pass
                             finally:
                                 await page.close()
                         await browser.close()
