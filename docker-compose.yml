@@ -9,3 +9,7 @@ services:
     ports:
       - "8000:8000"
     restart: always
+  browser:
+    image: ghcr.io/browserless/chromium:latest
+    ports:
+      - 3000:3000

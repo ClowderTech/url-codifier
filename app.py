@@ -17,6 +17,8 @@ import traceback
 from typing import List, Tuple
 from playwright.async_api import async_playwright, Response
 from playwright._impl._errors import Error as PlaywrightError
+from bs4 import BeautifulSoup
+import json
 
 
 # Initialize FastAPI application
@@ -126,7 +128,7 @@ def is_valid_url(url):
 
 async def execute_async_code(code):
     """Executes the dynamic code asynchronously and returns a result."""
-    exec_globals = {"fetch_data": fetch_data, "__builtins__": safe_builtins}
+    exec_globals = {"fetch_data": fetch_data, "html_parser": html_parser, "fetch": Fetch, "__builtins__": safe_builtins}
     try:
         # Execute the dynamic code
         exec(code, exec_globals)
@@ -153,6 +155,9 @@ async def execute_async_code(code):
         # Raise a custom exception with the traceback details
         raise RuntimeError("Error executing dynamic code.") from e
 
+async def html_parser(html):
+    return BeautifulSoup(html, "html5lib")
+
 async def fetch_data(url):
     if not BROWSER_WS:
         async with aiohttp.ClientSession() as session:
@@ -168,6 +173,7 @@ async def fetch_data(url):
         async with async_playwright() as playwright:
             browser = await playwright.chromium.connect(BROWSER_WS)
             async with browser:
+                context = await browser.new_context()
                 page = await browser.new_page()
                 try:
                     response = await page.goto(url)
@@ -181,7 +187,27 @@ async def fetch_data(url):
                 finally:
                     await page.close()
             await browser.close()
-            
+
+class Fetch:
+    def __init__(self, url: string):
+        self.url = url
+        self.playwright = None
+        self.browser = None
+        self.context = None
+        self.page = None
+
+    async def __aenter__(self):
+        self.playwright = await async_playwright().start()
+        self.browser = await self.playwright.chromium.connect(BROWSER_WS)
+        self.context = await self.browser.new_context()
+        self.page = await self.browser.new_page()
+        response = await self.page.goto(self.url)
+        return response
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.page.close()
+        await self.browser.close()
+        await self.playwright.stop()
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -268,9 +294,10 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
         if code:
             try:
                 result = await execute_async_code(code)
+                print(result)
 
-                content: bytes
-                response: Response
+                content: bytes = bytes()
+                media_type: str = 'application/octet-stream'
 
                 if not BROWSER_WS:
                     async with aiohttp.ClientSession() as session:
@@ -280,31 +307,35 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
                 else:
                     async with async_playwright() as playwright:
                         browser = await playwright.chromium.connect(BROWSER_WS)
-                        async with browser:
-                            page = await browser.new_page()
+                        try:
+                            context = await browser.new_context()
+                            page = await context.new_page()
+                            response = await page.goto(result)
+                            if response.ok:
+                                content = await response.body()
+                                media_type = response.headers.get('Content-Type', 'application/octet-stream')
+                        except PlaywrightError:
+                            context = await browser.new_context(accept_downloads=True)
+                            page = await context.new_page()
                             try:
-                                response = await page.goto(result)
-                                if response.ok:
-                                    content = await response.body()
-                            except PlaywrightError:
-                                try:
-                                    download_future = page.wait_for_event("download")
-                                    response = await page.goto(result)
-                                    if response.ok:
-                                        stream = await (await download_future).create_read_stream() or await response.body()
-                                        buffer = io.BytesIO()
-                                        async for chunk in stream:
-                                            buffer.write(chunk)
-                                        content = buffer.getvalue()
-                                except:
-                                    pass
-                            finally:
-                                await page.close()
-                        await browser.close()
-                
+                                async with page.expect_download() as download_info:
+                                    await page.goto(result)
+                                download = await download_info.value
+                                stream = await download.create_read_stream()
+                                buffer = io.BytesIO()
+                                async for chunk in stream:
+                                    buffer.write(chunk)
+                                content = buffer.getvalue()
+                                media_type = response.headers.get('Content-Type', 'application/octet-stream')
+                            except:
+                                pass
+                        finally:
+                            await page.close()
+                            await browser.close()
+
                 return StreamingResponse(
                     iter([content]),
-                    media_type=response.headers.get('Content-Type', 'application/octet-stream'),
+                    media_type=media_type,
                     headers={'Content-Disposition': f'attachment; filename="{file_name}"'}
                 )
             except Exception as e:
