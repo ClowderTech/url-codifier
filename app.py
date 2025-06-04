@@ -15,6 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 import re
 import traceback
 from typing import List, Tuple
+from playwright.async_api import async_playwright
 
 # Initialize FastAPI application
 app = FastAPI()
@@ -35,6 +36,7 @@ def verify_password(stored_hash, password):
 # Retrieve MongoDB connection string and admin password from environment variables
 MONGO_URI = os.environ.get('MONGO_URI')
 ADMIN_PASSWORD = hash_password(os.environ.get('ADMIN_PASSWORD'))
+BROWSER_WS = os.environ.get('BROWSER_WS')
 
 if not MONGO_URI:
     raise ValueError("MONGO_URI environment variable is not set.")
@@ -150,15 +152,29 @@ async def execute_async_code(code):
         raise RuntimeError("Error executing dynamic code.") from e
 
 async def fetch_data(url):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.ok:
-                try:
-                    return await response.json()
-                except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                    return await response.text()
-            else:
-                return f"Request failed with status code {response.status}"
+    if not BROWSER_WS:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.ok:
+                    try:
+                        return await response.json()
+                    except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                        return await response.text()
+                else:
+                    return f"Request failed with status code {response.status}"
+    else:
+        async with async_playwright() as playwright:
+            async with playwright.chromium.connect(BROWSER_WS) as browser:
+                async with browser.new_page() as page:
+                    async with page.goto(url) as response:
+                        if response.ok:
+                            try:
+                                return await response.json()
+                            except (json.JSONDecodeError):
+                                return await response.text()
+                        else:
+                            return f"Request failed with status code {response.status}"
+            
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -246,10 +262,17 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
             try:
                 result = await execute_async_code(code)
 
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(result) as response:
-                        response.raise_for_status()
-                        content = await response.read()
+                if not BROWSER_WS:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(result) as response:
+                            response.raise_for_status()
+                            content = await response.read()
+                    async with async_playwright() as playwright:
+                        async with playwright.chromium.connect(BROWSER_WS) as browser:
+                            async with browser.new_page() as page:
+                                async with page.goto(url) as response:
+                                    if response.ok:
+                                        content = await response.body()
                 
                 return StreamingResponse(
                     iter([content]),
