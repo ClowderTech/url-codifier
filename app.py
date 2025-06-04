@@ -19,6 +19,7 @@ from playwright.async_api import async_playwright, Response
 from playwright._impl._errors import Error as PlaywrightError
 from bs4 import BeautifulSoup
 import json
+import tempfile
 
 
 # Initialize FastAPI application
@@ -277,7 +278,7 @@ async def dynamic_redirect(request: Request, key: str):
                     "error_message": "An error occurred while processing your code.",
                     "traceback": tb_str,
                     "messages": [["danger", "An error occurred while executing your code."]]
-                })
+                }), 400
         else:
             return "The 'code' field is empty.", 400  # Bad request error for empty 'code'
     return "Handler function not found.", 404  # Not found error if document doesn't exist.
@@ -293,10 +294,9 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
         code = document.get("code")
         if code:
             try:
-                result = await execute_async_code(code)
-                print(result)
+                result = str(await execute_async_code(code))
 
-                content: bytes = bytes()
+                content: bytes = None
                 media_type: str = 'application/octet-stream'
 
                 if not BROWSER_WS:
@@ -305,33 +305,20 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
                             response.raise_for_status()
                             content = await response.read()
                 else:
-                    async with async_playwright() as playwright:
-                        browser = await playwright.chromium.connect(BROWSER_WS)
-                        try:
+                    try:
+                        async with async_playwright() as playwright:
+                            browser = await playwright.chromium.connect(BROWSER_WS)
                             context = await browser.new_context()
                             page = await context.new_page()
                             response = await page.goto(result)
                             if response.ok:
                                 content = await response.body()
                                 media_type = response.headers.get('Content-Type', 'application/octet-stream')
-                        except PlaywrightError:
-                            context = await browser.new_context(accept_downloads=True)
-                            page = await context.new_page()
-                            try:
-                                async with page.expect_download() as download_info:
-                                    await page.goto(result)
-                                download = await download_info.value
-                                stream = await download.create_read_stream()
-                                buffer = io.BytesIO()
-                                async for chunk in stream:
-                                    buffer.write(chunk)
-                                content = buffer.getvalue()
-                                media_type = response.headers.get('Content-Type', 'application/octet-stream')
-                            except:
-                                pass
-                        finally:
-                            await page.close()
-                            await browser.close()
+                    except PlaywrightError:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(result) as response:
+                                response.raise_for_status()
+                                content = await response.read()
 
                 return StreamingResponse(
                     iter([content]),
@@ -347,7 +334,7 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
                     "error_message": "An error occurred while processing your code.",
                     "traceback": tb_str,
                     "messages": [["danger", "An error occurred while executing your code."]]
-                })
+                }), 400
         else:
             return "The 'code' field is empty.", 400  # Bad request error for empty 'code'
     return "Handler function not found.", 404  # Not found error if document doesn't exist.
