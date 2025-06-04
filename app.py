@@ -283,7 +283,7 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
                                 response = await page.goto(result)
                                 if response.ok:
                                     content = await response.body()
-                            except Error:
+                            except PlaywrightError:
                                 try:
                                     download_future = page.wait_for_event("download")
                                     response = await page.goto(result)
