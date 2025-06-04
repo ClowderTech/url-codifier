@@ -267,6 +267,7 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
                         async with session.get(result) as response:
                             response.raise_for_status()
                             content = await response.read()
+                else:
                     async with async_playwright() as playwright:
                         async with playwright.chromium.connect(BROWSER_WS) as browser:
                             async with browser.new_page() as page:
