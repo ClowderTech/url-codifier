@@ -164,16 +164,21 @@ async def fetch_data(url):
                     return f"Request failed with status code {response.status}"
     else:
         async with async_playwright() as playwright:
-            async with playwright.chromium.connect(BROWSER_WS) as browser:
-                async with browser.new_page() as page:
-                    async with page.goto(url) as response:
-                        if response.ok:
-                            try:
-                                return await response.json()
-                            except (json.JSONDecodeError):
-                                return await response.text()
-                        else:
-                            return f"Request failed with status code {response.status}"
+            browser = await playwright.chromium.connect(BROWSER_WS)
+            async with browser:
+                page = await browser.new_page()
+                try:
+                    response = await page.goto(url)
+                    if response.ok:
+                        try:
+                            return await response.json()
+                        except (json.JSONDecodeError):
+                            return await response.text()
+                    else:
+                        return f"Request failed with status code {response.status}"
+                finally:
+                    await page.close()
+            await browser.close()
             
 
 @app.get("/", response_class=HTMLResponse)
@@ -269,11 +274,16 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
                             content = await response.read()
                 else:
                     async with async_playwright() as playwright:
-                        async with playwright.chromium.connect(BROWSER_WS) as browser:
-                            async with browser.new_page() as page:
-                                async with page.goto(url) as response:
-                                    if response.ok:
-                                        content = await response.body()
+                        browser = await playwright.chromium.connect(BROWSER_WS)
+                        async with browser:
+                            page = await browser.new_page()
+                            try:
+                                response = await page.goto(url)
+                                if response.ok:
+                                    content = await response.body()
+                            finally:
+                                await page.close()
+                        await browser.close()
                 
                 return StreamingResponse(
                     iter([content]),
