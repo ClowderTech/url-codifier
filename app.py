@@ -278,7 +278,7 @@ async def dynamic_download(request: Request, key: str, file_name: str = Query(..
                         async with browser:
                             page = await browser.new_page()
                             try:
-                                response = await page.goto(url)
+                                response = await page.goto(result)
                                 if response.ok:
                                     content = await response.body()
                             finally:
