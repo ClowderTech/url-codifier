@@ -189,7 +189,8 @@ async def fetch_data(url):
                     return f"Request failed with status code {response.status}"
     else:
         async with async_playwright() as playwright:
-            async with playwright.chromium.connect(BROWSER_WS) as browser:
+            browser = await playwright.chromium.connect(BROWSER_WS)
+            async with browser:
                 context = await browser.new_context()
                 page = await browser.new_page()
                 try:
