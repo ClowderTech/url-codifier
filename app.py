@@ -1,4 +1,5 @@
 import asyncio
+import codecs
 import json
 import os
 import random
@@ -26,7 +27,9 @@ from starlette.middleware.sessions import SessionMiddleware
 app = FastAPI()
 
 # Add session middleware
-app.add_middleware(SessionMiddleware, secret_key=os.urandom(32).decode())
+app.add_middleware(
+    SessionMiddleware, secret_key=codecs.encode(os.urandom(32), "hex").decode()
+)
 
 salt = bcrypt.gensalt()
 
