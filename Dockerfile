@@ -1,27 +1,51 @@
-# Use the official Python image as a base
-FROM python:slim
+# syntax=docker/dockerfile:1
 
-# Set the working directory in the container
+# Comments are provided throughout this file to help you get started.
+# If you need more help, visit the Dockerfile reference guide at
+# https://docs.docker.com/go/dockerfile-reference/
+
+# Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
+
+ARG PYTHON_VERSION=3.13.5
+FROM python:${PYTHON_VERSION}-slim as base
+
+# Prevents Python from writing pyc files.
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Keeps Python from buffering stdout and stderr to avoid situations where
+# the application crashes without emitting any logs due to buffering.
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Add user so we don't need --no-sandbox.
-RUN groupadd clowdertech && useradd -g clowdertech clowdertech \
-    && mkdir -p /home/clowdertech/Downloads /app \
-    && chown -R clowdertech:clowdertech /home/clowdertech \
-    && chown -R clowdertech:clowdertech /app
+# Create a non-privileged user that the app will run under.
+# See https://docs.docker.com/go/dockerfile-user-best-practices/
+ARG UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    appuser
 
-# Copy requirements file and install dependencies
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Download dependencies as a separate step to take advantage of Docker's caching.
+# Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
+# Leverage a bind mount to requirements.txt to avoid having to copy them into
+# into this layer.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    python -m pip install -r requirements.txt
 
-# Run everything after as non-privileged user.
-USER clowdertech
+# Switch to the non-privileged user to run the application.
+USER appuser
 
-# Copy the entire application (including templates and other necessary files)
+# Copy the source code into the container.
 COPY . .
 
-# Expose the port the app runs on
+# Expose the port that the application listens on.
 EXPOSE 8000
 
-# Run the Flask application using Gunicorn
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application.
+CMD uvicorn app:app --host 0.0.0.0 --port 8000
