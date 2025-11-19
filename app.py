@@ -177,17 +177,15 @@ async def html_parser(html):
 
 
 async def fetch_data(url):
-    if not BROWSER_WS:
+    try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
-                if response.ok:
-                    try:
-                        return await response.json()
-                    except (aiohttp.ContentTypeError, json.JSONDecodeError):
-                        return await response.text()
-                else:
-                    return f"Request failed with status code {response.status}"
-    else:
+                response.raise_for_status()
+                try:
+                    return await response.json()
+                except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                    return await response.text()
+    except:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.connect(BROWSER_WS)
             async with browser:
@@ -357,29 +355,26 @@ async def dynamic_download(
                 content: bytes = bytes()
                 media_type: str = "application/octet-stream"
 
-                if not BROWSER_WS:
+                try:
                     async with aiohttp.ClientSession() as session:
                         async with session.get(result) as response:
                             response.raise_for_status()
                             content = await response.read()
-                else:
-                    try:
-                        async with async_playwright() as playwright:
-                            browser = await playwright.chromium.connect(BROWSER_WS)
-                            context = await browser.new_context()
-                            page = await context.new_page()
-                            response = await page.goto(result)
-                            if response.ok:
-                                content = await response.body()
-                                media_type = response.headers.get(
-                                    "Content-Type", "application/octet-stream"
+                except:
+                    async with async_playwright() as playwright:
+                        browser = await playwright.chromium.connect(BROWSER_WS)
+                        context = await browser.new_context()
+                        page = await context.new_page()
+                        response = await page.goto(result)
+                        async with response.finished():
+                            if not response.ok:
+                                raise Exception(
+                                    f"{response.status}: {response.status_text}"
                                 )
-                    except PlaywrightError:
-                        async with aiohttp.ClientSession() as session:
-                            async with session.get(result) as response:
-                                response.raise_for_status()
-                                content = await response.read()
-
+                            content = await response.body()
+                            media_type = response.headers.get(
+                                "Content-Type", "application/octet-stream"
+                            )
                 return StreamingResponse(
                     iter([content]),
                     media_type=media_type,
