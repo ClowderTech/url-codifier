@@ -230,6 +230,7 @@ class Fetch:
 async def home(request: Request):
     """Render the home page with form."""
     return templates.TemplateResponse(
+        request,
         "create_redirect.html",
         {
             "request": request,
@@ -275,6 +276,7 @@ async def create_redirect(
         ]
 
     return templates.TemplateResponse(
+        request,
         "create_redirect.html",
         {
             "request": request,
@@ -307,6 +309,7 @@ async def dynamic_redirect(request: Request, key: str):
                 # Pass the traceback to the template
                 return (
                     templates.TemplateResponse(
+                        request,
                         "error_page.html",
                         {
                             "request": request,
@@ -388,6 +391,7 @@ async def dynamic_download(
                 # Pass the traceback to the template
                 return (
                     templates.TemplateResponse(
+                        request,
                         "error_page.html",
                         {
                             "request": request,
