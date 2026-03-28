@@ -3,15 +3,12 @@ name: Docker
 on:
     push:
         branches: ["master"]
-        # Publish semver tags as releases.
         tags: ["v*.*.*"]
     pull_request:
         branches: ["master"]
 
 env:
-    # Use docker.io for Docker Hub if empty
     REGISTRY: ghcr.io
-    # github.repository as <account>/<repo>
     IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -46,7 +43,7 @@ jobs:
                     
             -   name: Extract Docker metadata
                 id: meta
-                uses: docker/metadata-action@v6.0.0 # v5.0.0
+                uses: docker/metadata-action@v6.0.0
                 with:
                     images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
                     
