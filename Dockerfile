@@ -6,8 +6,8 @@
 
 # Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
 
-ARG PYTHON_VERSION=3.13.5
-FROM python:${PYTHON_VERSION}-slim as base
+ARG PYTHON_VERSION=3.14.3
+FROM python:${PYTHON_VERSION}-slim-trixie as base
 
 # Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -21,13 +21,17 @@ WORKDIR /app
 # Create a non-privileged user that the app will run under.
 # See https://docs.docker.com/go/dockerfile-user-best-practices/
 ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
+RUN groupadd \
+    --gid "${UID}" \
+    --system \
+    appuser \ 
+    && useradd \
+    --home-dir "/nonexistent" \
+    --shell "/usr/sbin/nologin" \
     --uid "${UID}" \
+    --gid "${UID}" \
+    --no-log-init \
+    --system \
     appuser
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
